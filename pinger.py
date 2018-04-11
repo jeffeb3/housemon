@@ -158,6 +158,9 @@ class Endpoint(object):
         self.stats_lock.release()
         return ok
 
+    def getError(self):
+        return None
+
 class Switch(Endpoint):
     '''
     Widget that displays information about a switch or router and it's children.
@@ -253,6 +256,15 @@ class Switch(Endpoint):
 
         return False
 
+    def getError(self):
+        for child in self.children:
+            err = child.getError()
+            if err:
+                return err
+        if not self.ok():
+            return "%s is not OK" % self.name
+        return None
+
 class NetworkMap(urwid.Pile):
     '''
     Network as a map.
@@ -346,8 +358,15 @@ class NetworkMap(urwid.Pile):
     def getError(self):
         ''' Return a human readable string of some normal problems. '''
         for child in self.children:
+            # Everything is broken...
             if not child.ok():
                 return "You aren't connected to the router. There might be zombies in the house."
+
+        for child in self.children:
+            # One switch is broken
+            err = child.getError()
+            if err:
+                return err
 
         if self.ping_ip == None:
             return "The Intenet is missing. Check for zombies. Better yet, stay inside."

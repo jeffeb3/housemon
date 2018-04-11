@@ -103,4 +103,10 @@ class PrinterWidget(urwid.Pile):
 
     def getError(self):
         ''' return if there is a problem that I can detect. '''
+        self.stats_lock.acquire(True)
+        state = self.stats['state']
+        self.stats_lock.release()
+        if state['text'] == 'Unknown':
+            return "Octoprint server %s is not responding" % self.machine
         return None
+

@@ -207,6 +207,10 @@ class MqttWidget(urwid.Pile):
 
     def getError(self):
         ''' return if there is a problem that I can detect. '''
+        for machine in self.machines:
+            if not machine.ok():
+                return "%s is not OK" % machine.name
+
         return None
 
 
