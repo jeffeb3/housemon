@@ -67,13 +67,14 @@ class MqttTimedData(MqttData):
 
         if changed_ago > SECONDS_PER_YEAR:
             changed_time =  "%0.08f years" % (changed_ago / SECONDS_PER_YEAR)
-        if changed_ago > SECONDS_PER_DAY:
+        elif changed_ago > SECONDS_PER_DAY:
             changed_time =  "%0.05f days" % (changed_ago / SECONDS_PER_DAY)
-        if changed_ago > SECONDS_PER_HOUR:
+        elif changed_ago > SECONDS_PER_HOUR:
             changed_time =  "%0.03f hours" % (changed_ago / SECONDS_PER_HOUR)
-        if changed_ago > SECONDS_PER_MINUTE:
+        elif changed_ago > SECONDS_PER_MINUTE:
             changed_time =  "%0.02f mins" % (changed_ago / SECONDS_PER_MINUTE)
-        changed_time =  "%0.0f sec" % changed_ago
+        else:
+            changed_time =  "%0.0f sec" % changed_ago
 
         return '%s (%s)' % (MqttData.value_text(self), changed_time)
 
@@ -167,7 +168,7 @@ class MqttWidget(urwid.Pile):
     def getPalette(self):
         ''' Used to populate the pallete. '''
         return [
-            ('good', 'light blue', '', '', 'light blue', ''),
+            ('good', 'light green', '', '', 'light green', ''),
             ('stale', 'light red', '', '', 'light red', ''),
         ]
 

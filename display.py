@@ -47,8 +47,8 @@ uptime_text.start = time.time()
 
 def set_title():
     clock.set_text([u'%s' % time.asctime()])
-    threads.set_text([u"Number of threads: %d" % threading.active_count()])
-    uptime.set_text([u"Uptime: %s" % uptime_text()])
+    threads.set_text([u"Threads:\n%d" % threading.active_count()])
+    uptime.set_text([u"Uptime:\n%s" % uptime_text()])
 
 class WidgetColumns(urwid.Columns):
     def __init__(self, widgets):
@@ -94,7 +94,7 @@ def createWidget(type, config):
 if __name__ == '__main__':
 
     # top and bottom fields.
-    title_name = urwid.Text(u"Evil House Monitor v0.1")
+    title_name = urwid.Text(u"Evil House Monitor\nv0.1")
     clock = urwid.Text(u"Clock", align="right")
     threads = urwid.Text(u"threads", align="center")
     uptime = urwid.Text(u"uptime", align="center")
@@ -128,9 +128,11 @@ if __name__ == '__main__':
 
     # Create the main loop.
     divider = urwid.Divider(u'\u2500')
-    main_wid = urwid.Pile([title, divider] + widgets + [divider, status])
-    fill = urwid.Filler(main_wid, 'top')
-    loop = urwid.MainLoop(fill, palette, unhandled_input=event)
+    header = urwid.Pile([title, divider])
+    body = urwid.Filler(urwid.Pile([urwid.LineBox(w) for w in widgets]), 'top')
+    footer = urwid.Pile([divider, status])
+    main_wid = urwid.Frame(body, header, footer)
+    loop = urwid.MainLoop(main_wid, palette, unhandled_input=event)
     loop.screen.set_terminal_properties(colors=256)
 
     # Kick off the updates for each widget.

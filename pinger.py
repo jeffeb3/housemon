@@ -304,7 +304,7 @@ class NetworkMap(urwid.Pile):
             cols.append(urwid.AttrMap(urwid.Text('Connection: BAD (%s)' % (self.ip)), 'warn'))
 
         if self.lookup:
-            cols.append(urwid.AttrMap(urwid.Text('DNS: GOOD (%s -> %s)' % (self.host, self.lookup)), 'ok'))
+            cols.append(urwid.AttrMap(urwid.Text('DNS: GOOD (%s->%s)' % (self.host, self.lookup)), 'ok'))
         else:
             cols.append(urwid.AttrMap(urwid.Text('DNS: BAD (%s)' % (self.host)), 'warn'))
 
