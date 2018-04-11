@@ -36,8 +36,9 @@ class PrinterWidget(urwid.Pile):
         self.key = params['key']
         self.stats = {}
         self.stats['state'] = { 'text': 'Unknown' }
-        self.stats['temperature'] = { 'bed': {"actual": 0.0},
-                                      'tool0': {"actual": 0.0}}
+        self.stats['temperature'] = { 'bed': {"actual": 0.0, "target": 0.0},
+                                    'tool0': {"actual": 0.0, "target": 0.0}}
+        self.stats['last_update'] = time.time()
         self.stats_lock = threading.Lock()
 
     def getPalette(self):
@@ -46,51 +47,73 @@ class PrinterWidget(urwid.Pile):
             ('cool', 'light blue', '', '', 'light blue', ''),
             ('warm', 'light magenta', '', '', 'light magenta', ''),
             ('hot', 'light red', '', '', 'light red', ''),
-            ('old_data', 'dark red', '', '', 'h8', ''),
+            ('old_data', 'dark red', '', '', 'light red', ''),
         ]
 
     # callback
     def stats_cb(self, data):
         ''' Gets called when the data returns. '''
+        self.stats_lock.acquire(True)
         if data is not None:
-            self.stats_lock.acquire(True)
             self.stats.update(data)
-            self.stats_lock.release()
+            self.stats['last_update'] = time.time()
+        else:
+            self.stats['state']['text'] = 'Unknown'
+            self.stats['temperature']['bed']['actual'] = 0.0
+            self.stats['temperature']['tool0']['actual'] = 0.0
+            self.stats['temperature']['bed']['target'] = 0.0
+            self.stats['temperature']['tool0']['target'] = 0.0
+        self.stats_lock.release()
 
     def getData(self, loop, user_data):
         ''' This looks for all the machines, and then puts itself back into the list of things to get called by loop.'''
         ReadDataAsync('http://%s/api/printer?apikey=%s' % (self.machine, self.key), self.stats_cb)
-        loop.set_alarm_in(10.0, self.getData)
+        loop.set_alarm_in(3.0, self.getData)
 
     def update(self, loop, data):
         ''' This updates the widgets used in the pinger part of the display. '''
         rows = []
 
         self.stats_lock.acquire(True)
-        status = self.stats['state']['text']
-        bed_temp = float(self.stats['temperature']['bed']['actual'])
-        nozzle_temp = float(self.stats['temperature']['tool0']['actual'])
+        try:
+            status = self.stats['state']['text']
+        except KeyError as e:
+            status = "Unknown"
+        try:
+            bed_temp = (float(self.stats['temperature']['bed']['actual']),
+                        float(self.stats['temperature']['bed']['target']))
+        except KeyError as e:
+            bed_temp = (0,0)
+        try:
+            nozzle_temp = (float(self.stats['temperature']['tool0']['actual']),
+                           float(self.stats['temperature']['tool0']['target']))
+        except KeyError as e:
+            nozzle_temp = (0,0)
+        old = (time.time() - self.stats['last_update']) > 22.0
         self.stats_lock.release()
 
-        rows.append((urwid.AttrMap(urwid.Text('Octoprint: %s' % status), 'title'), self.options()))
+        theme = 'title'
+        if old:
+            theme = 'old_data'
+        rows.append((urwid.AttrMap(urwid.Text('Octoprint: %s' % status), theme), self.options()))
 
         cols = urwid.Columns([])
         temp = None
-        if bed_temp < 30.0:
+        if bed_temp[0] < 30.0:
             temp = 'cool'
-        elif bed_temp > 60.0:
+        elif bed_temp[0] > 60.0:
             temp = 'hot'
-        elif bed_temp > 45.0:
+        else:
             temp = 'warm'
-        cols.contents.append((urwid.AttrMap(urwid.Text('Bed Temp: %0.1fF' % (bed_temp)), temp), cols.options()))
+        cols.contents.append((urwid.AttrMap(urwid.Text('Bed Temp: %0.1fC / %0.1fC' % bed_temp), temp), cols.options()))
         temp = None
-        if nozzle_temp < 70.0:
+        if nozzle_temp[0] < 100.0:
             temp = 'cool'
-        elif nozzle_temp > 200.0:
+        elif nozzle_temp[0] > 200.0:
             temp = 'hot'
-        elif nozzle_temp > 100.0:
+        else:
             temp = 'warm'
-        cols.contents.append((urwid.AttrMap(urwid.Text('Nozzle Temp:: %0.1fF' % (nozzle_temp)), temp), cols.options()))
+        cols.contents.append((urwid.AttrMap(urwid.Text('Nozzle Temp:: %0.1fC / %0.1fC' % nozzle_temp), temp), cols.options()))
         rows.append((cols, self.options()))
 
         self.contents = rows
@@ -109,4 +132,13 @@ class PrinterWidget(urwid.Pile):
         if state['text'] == 'Unknown':
             return "Octoprint server %s is not responding" % self.machine
         return None
+
+if __name__ == '__main__':
+    import yaml
+    with open('config.yaml', 'r') as config_file:
+
+        cfg = yaml.load(config_file)
+        for wid in cfg:
+            if wid.keys()[0] == 'octoprint':
+                print(ReadData("http://%s/api/printer?apikey=%s" % (wid['octoprint']['host'], wid['octoprint']['key'])))
 
