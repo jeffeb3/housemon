@@ -15,25 +15,116 @@ class MqttData(object):
         self.name = params['name']
         self.timeout = float(params['timeout'])
 
-        self.last_time = 0.0
+        self.last_time = time.time()
         self.value = None
 
     def update(self, value):
         self.value = value
         self.last_time = time.time()
 
-    def draw(self):
+    def ok(self):
         dt = time.time() - self.last_time
 
         if (dt < self.timeout):
+            return True
+        return False
+
+    def draw(self):
+        if self.ok():
             color = 'good'
         else:
             color = 'stale'
 
         cols = urwid.Columns([])
         cols.contents.append((urwid.AttrMap(urwid.Text(self.name), color), cols.options()))
-        cols.contents.append((urwid.AttrMap(urwid.Text(str(self.value)), color), cols.options()))
+        cols.contents.append((urwid.AttrMap(urwid.Text(self.value_text()), color), cols.options()))
         return cols
+
+    def value_text(self):
+        return str(self.value)
+
+class MqttTimedData(MqttData):
+    ''' Also print how long the value has been at that value '''
+    def __init__(self, params):
+        MqttData.__init__(self, params)
+        self.changed_time = time.time()
+
+    def update(self, value):
+        if self.value != value:
+            self.changed_time = time.time()
+        MqttData.update(self, value)
+
+    def value_text(self):
+        if self.value is None:
+            return MqttData.value_text(self)
+
+        changed_ago = time.time() - self.changed_time
+
+        SECONDS_PER_MINUTE = 60.0
+        SECONDS_PER_HOUR = 60.0 * SECONDS_PER_MINUTE
+        SECONDS_PER_DAY = 24.0 * SECONDS_PER_HOUR
+        SECONDS_PER_YEAR = 365.0 * SECONDS_PER_DAY # a bit optimistic, eh?
+
+        if changed_ago > SECONDS_PER_YEAR:
+            changed_time =  "%0.08f years" % (changed_ago / SECONDS_PER_YEAR)
+        if changed_ago > SECONDS_PER_DAY:
+            changed_time =  "%0.05f days" % (changed_ago / SECONDS_PER_DAY)
+        if changed_ago > SECONDS_PER_HOUR:
+            changed_time =  "%0.03f hours" % (changed_ago / SECONDS_PER_HOUR)
+        if changed_ago > SECONDS_PER_MINUTE:
+            changed_time =  "%0.02f mins" % (changed_ago / SECONDS_PER_MINUTE)
+        changed_time =  "%0.0f sec" % changed_ago
+
+        return '%s (%s)' % (MqttData.value_text(self), changed_time)
+
+class MqttGroup(object):
+    def __init__(self, params):
+        self.name = params['name']
+        self.messages = {}
+        for data in params['messages']:
+            if 'timed' in data.keys() and data['timed']:
+                mqtt_data = MqttTimedData(data)
+            else:
+                mqtt_data = MqttData(data)
+            self.messages[mqtt_data.topic] = mqtt_data
+
+        self.divider = None
+        if 'divider' in params.keys():
+            self.divider = params['divider']
+
+    def update(self, msg):
+        if msg.topic in self.messages:
+            self.messages[msg.topic].update(msg.payload)
+
+    def drawHeader(self):
+        ''' Return the widget that draws at the top of the widget and represents this switch's status. '''
+        pile = urwid.Pile([])
+
+        pile.contents.append((urwid.AttrMap(urwid.Text(self.name), 'title'), pile.options()))
+
+        if self.divider:
+            pile.contents.append((urwid.Divider(u'\u2500'), pile.options()))
+
+        return pile
+
+    def draw(self):
+        ''' Return the widget that describes this machine, and all of its messages. '''
+        widgets = [self.drawHeader()]
+
+        for message in self.messages.values():
+            widgets.append(message.draw())
+
+        pile = urwid.Pile(widgets)
+        if self.ok():
+            return urwid.LineBox(pile)
+        else:
+            return urwid.AttrMap(urwid.LineBox(pile), 'warn')
+
+    def ok(self):
+        for message in self.messages.values():
+            if message.ok():
+                return True
+        return False
 
 class MqttWidget(urwid.Pile):
     ''' Class used to draw the data from the Printer. '''
@@ -44,10 +135,14 @@ class MqttWidget(urwid.Pile):
 
         self.params = params
         self.host = params['host']
-        self.data = []
+        self.machines = []
         for machine in params['machines']:
-            for data in machine['messages']:
-                self.data.append(MqttData(data))
+            self.machines.append(MqttGroup(machine))
+
+        self.cols = 1
+        if 'columns' in params.keys():
+            self.cols = params['columns']
+
         self.client = mqtt.Client()
 
         self.client.on_connect = self.on_connect
@@ -65,9 +160,8 @@ class MqttWidget(urwid.Pile):
 
     def on_message(self, client, userdata, msg):
         self.stats_lock.acquire(True)
-        for item in self.data:
-            if msg.topic == item.topic:
-                item.update(msg.payload)
+        for item in self.machines:
+            item.update(msg)
         self.stats_lock.release()
 
     def getPalette(self):
@@ -86,8 +180,20 @@ class MqttWidget(urwid.Pile):
         rows.append((urwid.AttrMap(urwid.Text('Mqtt(%s): %s' % (self.host, connected)), 'title'), self.options()))
 
         self.stats_lock.acquire(True)
-        for row in self.data:
-            rows.append((row.draw(), self.options()))
+
+        if self.cols <= 1:
+            for row in self.machines:
+                rows.append((row.draw(), self.options()))
+        else:
+            cols = []
+            for row in self.machines:
+                cols.append(row.draw())
+                if len(cols) == self.cols:
+                    rows.append((urwid.Columns(cols), self.options()))
+                    cols = []
+            if cols:
+                rows.append((urwid.Columns(cols), self.options()))
+
         self.stats_lock.release()
 
         self.contents = rows

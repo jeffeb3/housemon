@@ -187,6 +187,10 @@ class Switch(Endpoint):
 
         self.children = []
 
+        self.divider = None
+        if 'divider' in map.keys():
+            self.divider = map['divider']
+
         i = 0
         if 'children' in map.keys():
             for child_map in map['children']:
@@ -211,7 +215,9 @@ class Switch(Endpoint):
         else:
             pile.contents.append((urwid.AttrMap(urwid.Text(self.name), 'title'), pile.options()))
 
-        pile.contents.append((urwid.Divider(u'\u2500'), pile.options()))
+        if self.divider:
+            pile.contents.append((urwid.Divider(u'\u2500'), pile.options()))
+
         return pile
 
     def draw(self):

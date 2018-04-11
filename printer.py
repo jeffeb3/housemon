@@ -30,10 +30,10 @@ def ReadDataAsync(url, callback):
 
 class PrinterWidget(urwid.Pile):
     ''' Class used to draw the data from the Printer. '''
-    def __init__(self, machine, key):
+    def __init__(self, params):
         urwid.Pile.__init__(self, [])
-        self.machine = machine
-        self.key = key
+        self.machine = params['host']
+        self.key = params['key']
         self.stats = {}
         self.stats['state'] = { 'text': 'Unknown' }
         self.stats['temperature'] = { 'bed': {"actual": 0.0},
