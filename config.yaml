@@ -1,0 +1,57 @@
+# Example config file.
+network map:
+    net_host: "google.com"
+    net_ip: "8.8.8.8"
+    routers:
+     -  name: "Modem"
+        ip: "192.168.1.1"
+        columns: 1
+        children:
+        -  name: "Router"
+           ip: "10.0.0.1"
+           columns: 2
+           children:
+            -  name: "Basement Switch"
+               children:
+                -  host: "octopi3.local"
+                -  host: "cooler-ranch.local"
+            -  name: "Office Switch"
+               children:
+                -  host: "hammer.local"
+                -  host: 'Playstation 3'
+                   ip:   '10.0.0.94'
+                   optional: True
+            -  name: "Internet"
+               children:
+                -  host: "reddit.com"
+                -  host: "v1engineering.com"
+            -  name: "WiFi"
+               children:
+                -  host: "Brother Printer"
+                   ip:   "10.0.0.60"
+                -  host: "IoLT"
+                   ip:   "10.0.0.217"
+                -  host: "Jeff's Phone"
+                   ip: "10.0.0.90"
+                   optional: True
+                -  host: "Jeff's Computer"
+                   ip: "10.0.0.91"
+                   optional: True
+mqtt:
+    host: jaid.local
+    port: 1883
+    machines:
+     -   name: "Thermespy"
+         messages:
+          -  name: "In Temp"
+             timeout: 60
+             topic: /evilhouse/THERMESPY/temperature
+     -   name: "Laundry"
+         messages:
+          -  name: "Washing"
+             timeout: 20
+             topic: /evilhouse/laundry/washing
+          -  name: "Drying"
+             timeout: 20
+             topic: /evilhouse/laundry/drying
+
