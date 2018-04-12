@@ -176,7 +176,7 @@ class MqttWidget(urwid.Pile):
         rows = []
 
         connected = "Disconnected"
-        if connected:
+        if self.connected:
             connected = "Connected"
         rows.append((urwid.AttrMap(urwid.Text('Mqtt(%s): %s' % (self.host, connected)), 'title'), self.options()))
 

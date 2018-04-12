@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
-import pinger, printer, mqtt
+import pinger, printer, mqtt, touch
 import urwid
 import threading
 import yaml
 import time
 import os.path
+import platform, socket
 
 def event(key):
     if key in ['q', 'Q']:
@@ -48,6 +49,7 @@ uptime_text.start = time.time()
 def set_title():
     clock.set_text([u'%s' % time.asctime()])
     threads.set_text([u"Threads:\n%d" % threading.active_count()])
+    hostname.set_text([u"%s:\n%s" % (platform.node(), socket.gethostbyname(platform.node() + '.local'))])
     uptime.set_text([u"Uptime:\n%s" % uptime_text()])
 
 class WidgetColumns(urwid.Columns):
@@ -83,6 +85,8 @@ def createWidget(type, config):
         return pinger.NetworkMap(config)
     if type == 'octoprint':
         return printer.PrinterWidget(config)
+    if type == 'touch':
+        return touch.TouchWidget(config)
     if type == 'columns':
         subwidgets = []
         for subconfig in config:
@@ -97,8 +101,9 @@ if __name__ == '__main__':
     title_name = urwid.Text(u"Evil House Monitor\nv0.1")
     clock = urwid.Text(u"Clock", align="right")
     threads = urwid.Text(u"threads", align="center")
+    hostname = urwid.Text(u"hostname", align="center")
     uptime = urwid.Text(u"uptime", align="center")
-    title = urwid.Columns([title_name, threads, uptime, clock])
+    title = urwid.Columns([title_name, threads, hostname, uptime, clock])
     set_title()
     status = urwid.Text(u"Status:")
 
